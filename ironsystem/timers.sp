@@ -4,7 +4,6 @@ public Action:Timer_PostMapStart(Handle:timer)
         IronLog(false, "Failed - DB not connected");
         return;
     }
-    LoadVips();
 }
 
 public Action:Timer_WelcomeMessage(Handle:timer, any:serial)
@@ -19,7 +18,7 @@ public Action:Timer_WelcomeMessage(Handle:timer, any:serial)
 public Action:Timer_VipMessage(Handle:timer, any:serial)
 {
     new client = GetClientFromSerial(serial);
-    if(IsValidClient(client)) {
+    if(IsValidClient(client) && !HasPlayerVip(client)) {
         PluginMessageToClient(client, "{NORMAL}Aktivuj si {RED}VIP {NORMAL}a získaj super výhody. Použi príkaz {BLUE}/vip {NORMAL}pre viac info!");
         CreateTimer(60.0, Timer_UsefullCommands, GetClientSerial(client));
     }

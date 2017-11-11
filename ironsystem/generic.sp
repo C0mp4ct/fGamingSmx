@@ -172,7 +172,7 @@ public SQLErrorCheckCallback(Handle:owner, Handle:hndl, const String:error[], an
 
 public CheckPlayerID(client) {
     new String:steamid[32], String:DBQuery[256];
-    GetClientAuthId(client, AuthId_Steam3, steamid, sizeof(steamid));
+    GetClientAuthId(client, AuthId_Steam2, steamid, sizeof(steamid));
     Format(DBQuery, sizeof(DBQuery), "SELECT id FROM players WHERE steamid='%s'", steamid);
     SQL_TQuery(DB, CheckPlayerIDCallback, DBQuery, GetClientUserId(client));
 }

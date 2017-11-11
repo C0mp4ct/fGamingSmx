@@ -34,9 +34,9 @@ new Float:g_bhopSpeed = 0.15;
 new Float:g_bhopHeight = 0.0;
 
 //VIP Buymenu
-new Handle:g_VipPrimaryWeaponMenu = INVALID_HANDLE;
+new Handle:g_VipPrimaryWeaponMenu   = INVALID_HANDLE;
 new Handle:g_VipSecondaryWeaponMenu = INVALID_HANDLE;
-new Handle:g_VipsMenu = INVALID_HANDLE;
+new Handle:g_VipListMenu            = INVALID_HANDLE;
 
 public SetVipAdvs(client, bool:status)
 {
@@ -121,29 +121,21 @@ public ToggleVipCookie(const client, VIP:advant)
 
 public bool:HasPlayerVipAdv(client, const VIP:adv)
 {
-    if(g_VIP[client][adv]) {
-        return true;
-    }
-
-    return false;
+    return g_VIP[client][adv];
 }
 
 public bool:HasPlayerVip(client)
 {
-    if(g_VIP[client][IsVIP]) {
-        return true;
-    }
-
-    return false;
+   return g_VIP[client][IsVIP];
 }
 
-public SetPlayerVip(client)
+public void SetPlayerVip(client)
 {
     g_VIP[client][IsVIP] = true;
     SetFullVipAdvs(client);
 }
 
-public UnsetPlayerVip(client)
+public void UnsetPlayerVip(client)
 {
     g_VIP[client][IsVIP] = false;
     SetVipAdvs(client, false);
@@ -194,7 +186,7 @@ public VipMenuHandler(Handle:menu, MenuAction:action, param1, param2)
             case 2:{DisplayVipInfoMenu(client);}
             case 3:{DisplayVipSettingsMenu(client);}
             case 4:{DisplayVipHelpMenu(client);}
-            case 5:{DisplayVipsMenu(client);}
+            case 5:{DisplayVipListMenu(client);}
         }
     }
 }
@@ -340,57 +332,26 @@ public VipHelpMenuHandler(Handle:menu, MenuAction:action, param1, param2)
     }
 }
 
-DisplayVipsMenu(const client)
+public void DisplayVipListMenu(const client)
 {
-    if(g_VipsMenu != INVALID_HANDLE)
-        SendPanelToClient(g_VipsMenu, client, VipsMenuHandler, 20);
-    else {
-        PluginMessageToClient(client, "Nie je k dispozícii.");
-        IronLog(false, "VipsPanel not loaded");
-    }
-}
-
-public VipsMenuHandler(Handle:menu, MenuAction:action, param1, param2)
-{
-    if(action == MenuAction_Select) {
-        new client = param1;
-        switch(param2) {
-            case 8: {DisplayVipMenu(client);}
-        }
-    }
-}
-
-LoadVips()
-{
-    SQL_TQuery(DB, LoadVipsDBCallback, "SELECT name FROM players WHERE vip=1");
-}
-
-public LoadVipsDBCallback(Handle:owner, Handle:hndl, const String:error[], any:data)
-{
-    if(hndl == INVALID_HANDLE) {
-        IronLog(false, "Query failed: %s", error);
-        return;
-    }
-
+    g_VipListMenu = CreateMenu(MenuHandler_VipList);
+    SetMenuTitle(g_VipListMenu, "Zoznam VIP hráčov");
+    SetMenuExitBackButton(g_VipListMenu, true);
     decl String:name[64];
-    if(g_VipsMenu != INVALID_HANDLE)
-        CloseHandle(g_VipsMenu);
-
-    g_VipsMenu = CreatePanel();
-    SetPanelTitle(g_VipsMenu, "Zoznam VIP hráčov");
-    if (SQL_GetRowCount(hndl) < 1) {
-        DrawPanelText(g_VipsMenu, "Zatiaľ neboli registrovaní žiadny VIP hráči.");
-    } else {
-        while(SQL_FetchRow(hndl)) {
-            SQL_FetchString(hndl, 0, name, sizeof(name));
-            DrawPanelItem(g_VipsMenu, name, ITEMDRAW_DISABLED);
+    for (new c = 1; c <= MaxClients; c++) {
+        if (!IsValidClient(c) || !g_VIP[c][IsVIP]) {
+            continue;
         }
+        GetClientName(c, name, sizeof(name));
+        AddMenuItem(g_VipListMenu, name, name, ITEMDRAW_DISABLED);
     }
 
-    SetPanelCurrentKey(g_VipsMenu, 8);
-    DrawPanelItem(g_VipsMenu, "Back");
-    SetPanelCurrentKey(g_VipsMenu, 9);
-    DrawPanelItem(g_VipsMenu, "Exit");
+    DisplayMenu(g_VipListMenu, client, MENU_TIME_FOREVER);
+}
+
+public MenuHandler_VipList(Handle:menu, MenuAction:action, param1, param2)
+{
+
 }
 
 public VipToggle(const target, const client)
@@ -414,8 +375,6 @@ public VipToggle(const target, const client)
         PluginMessageToClient(target, "{RED}VIP {NORMAL}ti bolo aktivované!");
         IronLog(true, "Admin %s aktivoval VIP hráčovi %s", name, nametarget);
     }
-
-    LoadVips();
 
     SQL_TQuery(DB, SQLErrorCheckCallback, DBQuery);
 }
@@ -441,7 +400,6 @@ public Action:Command_VipAdd(args)
                 PluginMessageToClient(i, "{RED}VIP ti{NORMAL}bolo aktivované!");
                 PluginMessage("Hráč {GREEN}%s {NORMAL}si práve aktivoval {RED}VIP{NORMAL}!", name);
                 IronLog(true, "Hráč %s aktivoval VIP!", name);
-                LoadVips();
                 break;
             } else continue;
         }
@@ -696,13 +654,17 @@ CalcDamage(client, client_attacker, damage)
 
 public Action:Command_Speed(client, args)
 {
-    if(HasPlayerVipAdv(client, SPEED)) {
-        if(!g_boostToggle[client] && g_boost[client] > 0) {
-            BoostPlayerOn(client, 1.6);
-        } else if(g_boost[client] > 0) {
-            BoostPlayerOff(client);
-        }
+    if(!HasPlayerVipAdv(client, SPEED)) {
+        return Plugin_Continue;
     }
+
+    if(!g_boostToggle[client] && g_boost[client] > 0) {
+        BoostPlayerOn(client, 1.6);
+    } else if(g_boost[client] > 0) {
+        BoostPlayerOff(client);
+    }
+
+    return Plugin_Continue;
 }
 
 public Action:Command_MegaSpeed(client, args)
@@ -716,21 +678,25 @@ public Action:Command_MegaSpeed(client, args)
 
 BoostPlayerOn(const client, Float:value)
 {
-    if(IsValidClient(client)) {
-        g_boostToggle[client] = true;
-        SetEntPropFloat(client, Prop_Data, "m_flLaggedMovementValue", value);
-        PluginMessageToClient(client, "Boost{GREEN}ON");
-        CreateTimer(0.1, Timer_Boost, GetClientSerial(client));
+    if(!IsValidClient(client)) {
+        return;
     }
+
+    g_boostToggle[client] = true;
+    SetEntPropFloat(client, Prop_Data, "m_flLaggedMovementValue", value);
+    PluginMessageToClient(client, "Boost{GREEN}ON");
+    CreateTimer(0.1, Timer_Boost, GetClientSerial(client));
 }
 
 BoostPlayerOff(const client)
 {
-    if(IsValidClient(client)) {
-        g_boostToggle[client] = false;
-        SetEntPropFloat(client, Prop_Data, "m_flLaggedMovementValue", 1.0);
-        PluginMessageToClient(client, "Boost{RED}OFF");
+    if(!IsValidClient(client)) {
+        return;
     }
+
+    g_boostToggle[client] = false;
+    SetEntPropFloat(client, Prop_Data, "m_flLaggedMovementValue", 1.0);
+    PluginMessageToClient(client, "Boost{RED}OFF");
 }
 
 public Action:Timer_Boost(Handle:timer, any:serial)
@@ -739,7 +705,7 @@ public Action:Timer_Boost(Handle:timer, any:serial)
     if(IsValidClient(client)) {
         if(HasPlayerVipAdv(client, SPEED) && g_boostToggle[client] && g_boost[client] > 0) {
             new String:steamid[32];
-            GetClientAuthId(client, AuthId_Steam3, steamid, sizeof(steamid));
+            GetClientAuthId(client, AuthId_Steam2, steamid, sizeof(steamid));
             if (!StrEqual(steamid, "STEAM_1:1:2168209", false)) {
                 g_boost[client] -= 0.1;
                 CreateTimer(0.1, Timer_Boost, GetClientSerial(client));

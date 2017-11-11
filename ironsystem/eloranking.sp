@@ -18,7 +18,7 @@ public CheckClientInElo(client)
     }
 
     new String:steamid[32], String:DBQuery[512];
-    GetClientAuthId(client, AuthId_Steam3, steamid, sizeof(steamid));
+    GetClientAuthId(client, AuthId_Steam2, steamid, sizeof(steamid));
     Format(DBQuery, sizeof(DBQuery), "SELECT rating, kills, assists, deaths, notify FROM elostats WHERE idPlayer = %d", steamid);
     SQL_TQuery(DB, CheckClientInEloCallback, DBQuery, GetClientUserId(client));
     sessionrating[client]  = 0;

@@ -1,6 +1,7 @@
 new g_advtarget[MAXPLAYERS+1];
 
-public Handle_AdminCategory(Handle:topmenu, TopMenuAction:action, TopMenuObject:object_id, param, String:buffer[], maxlength) {
+public Handle_AdminCategory(Handle:topmenu, TopMenuAction:action, TopMenuObject:object_id, param, String:buffer[], maxlength)
+{
     switch(action) {
         case TopMenuAction_DisplayTitle:
             Format(buffer, maxlength, "IronSystem manager");
@@ -9,7 +10,8 @@ public Handle_AdminCategory(Handle:topmenu, TopMenuAction:action, TopMenuObject:
     }
 }
 
-public Handle_VipAdd(Handle:topmenu, TopMenuAction:action, TopMenuObject:object_id, param, String:buffer[], maxlength) {
+public Handle_VipAdd(Handle:topmenu, TopMenuAction:action, TopMenuObject:object_id, param, String:buffer[], maxlength)
+{
     switch(action) {
         case TopMenuAction_DisplayOption:
             Format(buffer, maxlength, "Zapnúť / vypnúť VIP");
@@ -18,7 +20,8 @@ public Handle_VipAdd(Handle:topmenu, TopMenuAction:action, TopMenuObject:object_
     }
 }
 
-public Handle_AdvAdd(Handle:topmenu, TopMenuAction:action, TopMenuObject:object_id, param, String:buffer[], maxlength) {
+public Handle_AdvAdd(Handle:topmenu, TopMenuAction:action, TopMenuObject:object_id, param, String:buffer[], maxlength)
+{
     switch(action) {
         case TopMenuAction_DisplayOption:
             Format(buffer, maxlength, "Nastaviť VIP výhody");
@@ -27,7 +30,8 @@ public Handle_AdvAdd(Handle:topmenu, TopMenuAction:action, TopMenuObject:object_
     }
 }
 
-public Handle_Bhop(Handle:topmenu, TopMenuAction:action, TopMenuObject:object_id, param, String:buffer[], maxlength) {
+public Handle_Bhop(Handle:topmenu, TopMenuAction:action, TopMenuObject:object_id, param, String:buffer[], maxlength)
+{
     switch(action) {
         case TopMenuAction_DisplayOption:
             Format(buffer, maxlength, "Bhop nastavenia");
@@ -36,7 +40,8 @@ public Handle_Bhop(Handle:topmenu, TopMenuAction:action, TopMenuObject:object_id
     }
 }
 
-public Handle_MusicType(Handle:topmenu, TopMenuAction:action, TopMenuObject:object_id, param, String:buffer[], maxlength) {
+public Handle_MusicType(Handle:topmenu, TopMenuAction:action, TopMenuObject:object_id, param, String:buffer[], maxlength)
+{
     switch(action) {
         case TopMenuAction_DisplayOption:
             Format(buffer, maxlength, "Zmeniť prehrávanie hudby");
@@ -53,7 +58,8 @@ public Handle_MusicType(Handle:topmenu, TopMenuAction:action, TopMenuObject:obje
     }
 }
 
-public OnAdminMenuReady(Handle:topmenu) {
+public OnAdminMenuReady(Handle:topmenu)
+{
     /* Block us from being called twice */
     if (topmenu == hTopMenu)
         return;
@@ -78,7 +84,8 @@ public OnAdminMenuReady(Handle:topmenu) {
         AddToTopMenu(hTopMenu, "sm_ban", TopMenuObject_Item, AdminMenu_Ban, player_commands, "sm_ban", ADMFLAG_BAN);
 }
 
-DisplayVipAddTargetMenu(client) {
+DisplayVipAddTargetMenu(client)
+{
     new Handle:menu = CreateMenu(MenuHandler_VipAddPlayerList);
 
     decl String:title[100], String:buffer[100], String:name[64], String:userid[8];

@@ -1,20 +1,3 @@
-/*  SM CS:GO Weapon Paints
- *
- *  Copyright (C) 2017 Francisco 'Franc1sco' García
- * 
- * This program is free software: you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation, either version 3 of the License, or (at your option) 
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT 
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS 
- * FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along with 
- * this program. If not, see http://www.gnu.org/licenses/.
- */
-
 #include <sourcemod>
 #include <sdktools>
 #include <cstrike>
@@ -119,11 +102,13 @@ public OnPluginStart()
 	RegConsoleCmd("sm_wskins", GetSkins);
 	RegConsoleCmd("sm_paints", GetSkins);
 	
+	RegAdminCmd("sm_reloadwskins", ReloadSkins, ADMFLAG_ROOT);
+	
 	cvar_c4 = CreateConVar("sm_weaponpaints_c4", "1", "Enable or disable that people can apply paints to the C4. 1 = enabled, 0 = disabled");
 	cvar_saytimer = CreateConVar("sm_weaponpaints_saytimer", "10", "Time in seconds for block that show the plugin commands in chat when someone type a command. -1.0 = never show the commands in chat");
 	cvar_rtimer = CreateConVar("sm_weaponpaints_roundtimer", "20", "Time in seconds roundstart for can use the commands for change the paints. -1.0 = always can use the command");
 	cvar_rmenu = CreateConVar("sm_weaponpaints_rmenu", "1", "Re-open the menu when you select a option. 1 = enabled, 0 = disabled.");
-	cvar_onlyadmin = CreateConVar("sm_weaponpaints_onlyadmin", "1", "This feature is only for admins. 1 = enabled, 0 = disabled.");
+	cvar_onlyadmin = CreateConVar("sm_weaponpaints_onlyadmin", "0", "This feature is only for admins. 1 = enabled, 0 = disabled.");
 	cvar_zombiesv = CreateConVar("sm_weaponpaints_zombiesv", "1", "Enable this for prevent crashes in zombie servers. 1 = enabled, 0 = disabled.");
 	
 	g_c4 = GetConVarBool(cvar_c4);
@@ -499,7 +484,7 @@ ShowMenuM(client)
 	if(onlyadmin && GetUserAdmin(client) == INVALID_ADMIN_ID) return;
 	
 	new Handle:menu2 = CreateMenu(DIDMenuHandler_2);
-	SetMenuTitle(menu2, "%T by Franc1sco franug","Menu title 2", client, DATA);
+	SetMenuTitle(menu2, "%T","Menu title 2", client, DATA);
 	
 	decl String:tdisplay[64];
 	Format(tdisplay, sizeof(tdisplay), "%T", "Select paint for the current weapon", client);

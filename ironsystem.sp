@@ -168,7 +168,7 @@ public OnMapStart()
 public OnConfigsExecuted()
 {
     if (!LoadVipBuyConfig())
-        IronLog(false, "Nemožno načitať %s", g_VipWeaponNamesPath);
+        IronLog(false, "Unable to load %s", g_VipWeaponNamesPath);
 }
 
 public OnClientPostAdminCheck(client)
@@ -230,42 +230,17 @@ public OnClientDisconnect(client)
     times[2] = seconds;
     ImplodeStrings(times, 3, ":", time, sizeof(time));
     FormatTime(datetime, sizeof(datetime), "%Y-%m-%d %H:%M:%S", GetTime());
-    GetClientAuthId(client, AuthId_Steam3, steamid, sizeof(steamid));
+    GetClientAuthId(client, AuthId_Steam2, steamid, sizeof(steamid));
     Format(DBQuery, sizeof(DBQuery), "UPDATE players SET lastConnect='%s', spendedTime='%s' WHERE steamid='%s'", datetime, time, steamid);
     SQL_TQuery(DB, SQLErrorCheckCallback, DBQuery);
     UnsetPlayerVip(client);
 }
 
 InitDB() {
-    decl String:error[256];
     if (SQL_CheckConfig("fGaming")) {
         SQL_TConnect(DBConnect, "fGaming");
     } else {
         SQL_TConnect(DBConnect, "storage-local");
-    }
-
-    if (DB == INVALID_HANDLE) {
-        LogError("Could not connect to database: %s", error);
-        return;
-    }
-    decl String:ident[16], bool:sqlite;
-    SQL_ReadDriver(DB, ident, sizeof(ident));
-    if (strcmp(ident, "mysql", false) == 0) {
-        sqlite = false;
-    } else if(strcmp(ident, "sqlite", false) == 0) {
-        sqlite = true;
-    } else {
-        LogError("Invalid database.");
-        return;
-    }
-    if (sqlite) {
-        SQL_FastQuery(DB, "CREATE TABLE IF NOT EXISTS elostats (idPlayer INTEGER, rating INTEGER, kills INTEGER, assists INTEGER, deaths INTEGER, notify INTEGER)");
-        SQL_FastQuery(DB, "CREATE TABLE IF NOT EXISTS players (id INTEGER, name TEXT, steamid TEXT, vip INTEGER, lastConnect TEXT, ip TEXT, spendedTime TEXT)");
-        SQL_FastQuery(DB, "CREATE TABLE IF NOT EXISTS admins (idPlayer INTEGER, adminFlag TEXT)");
-    } else {
-        SQL_FastQuery(DB, "CREATE TABLE IF NOT EXISTS elostats (idPlayer int(8), rating int(8) NOT NULL, kills int(8) NOT NULL, assists int(8) NOT NULL deaths int(8) NOT NULL, notify int(2) NOT NULL)");
-        SQL_FastQuery(DB, "CREATE TABLE IF NOT EXISTS players (id int(8), name varchar(255), steamid varchar(32), vip int(1), lastConnect varchar(64), ip varchar(64), spendedTime varchar(64))");
-        SQL_FastQuery(DB, "CREATE TABLE IF NOT EXISTS admins (idPlayer int(8), adminFlag varchar(1)");
     }
 }
 
@@ -277,13 +252,34 @@ public DBConnect(Handle:owner, Handle:hndl, const String:error[], any:data)
     }
 
     DB = hndl;
+    decl String:ident[16], bool:sqlite;
+    SQL_ReadDriver(DB, ident, sizeof(ident));
+    if (strcmp(ident, "mysql", false) == 0) {
+        sqlite = false;
+    } else if(strcmp(ident, "sqlite", false) == 0) {
+        sqlite = true;
+    } else {
+        LogError("Invalid database.");
+        return;
+    }
+    if (sqlite) {
+        SQL_TQuery(DB, SQLErrorCheckCallback, "CREATE TABLE IF NOT EXISTS elostats (idPlayer INTEGER, rating INTEGER, kills INTEGER, assists INTEGER, deaths INTEGER, notify INTEGER)");
+        SQL_TQuery(DB, SQLErrorCheckCallback, "CREATE TABLE IF NOT EXISTS players (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, steamid TEXT, vip INTEGER, lastConnect TEXT, ip TEXT, spendedTime TEXT)");
+        SQL_TQuery(DB, SQLErrorCheckCallback, "CREATE TABLE IF NOT EXISTS admins (idPlayer INTEGER, adminFlag TEXT)");
+        SQL_TQuery(DB, SQLErrorCheckCallback, "CREATE TABLE IF NOT EXISTS banlist (idPlayer INTEGER, idAdmin INTEGER, bantime INTEGER, length INTEGER, reason TEXT, date TEXT)");
+    } else {
+        SQL_TQuery(DB, SQLErrorCheckCallback, "CREATE TABLE IF NOT EXISTS elostats (idPlayer int(8), rating int(8) NOT NULL, kills int(8) NOT NULL, assists int(8) NOT NULL deaths int(8) NOT NULL, notify int(2) NOT NULL)");
+        SQL_TQuery(DB, SQLErrorCheckCallback, "CREATE TABLE IF NOT EXISTS players (id int(8), name varchar(255), steamid varchar(32), vip int(1), lastConnect varchar(64), ip varchar(64), spendedTime varchar(64))");
+        SQL_TQuery(DB, SQLErrorCheckCallback, "CREATE TABLE IF NOT EXISTS admins (idPlayer int(8), adminFlag varchar(1)");
+        SQL_TQuery(DB, SQLErrorCheckCallback, "CREATE TABLE IF NOT EXISTS banlist (idPlayer int(8), idAdmin int(8), bantime int(10), length int(10), reason varchar(128), date varchar(64)");
+    }
     CheckAdminsInDB();
 }
 
 CheckClientInDB(const client)
 {
     new String:steamid[32], String:DBQuery[256];
-    GetClientAuthId(client, AuthId_Steam3, steamid, sizeof(steamid));
+    GetClientAuthId(client, AuthId_Steam2, steamid, sizeof(steamid));
     Format(DBQuery, sizeof(DBQuery), "SELECT vip, spendedTime, id FROM players WHERE steamid='%s'", steamid);
     SQL_TQuery(DB, CheckClientInDBCallback, DBQuery, GetClientUserId(client));
 }
@@ -301,7 +297,7 @@ public CheckClientInDBCallback(Handle:owner, Handle:hndl, const String:error[], 
     }
 
     new String:steamid[32], String:name[64], String:ip[32], String:datetime[32], String:DBQuery[512];
-    GetClientAuthId(client, AuthId_Steam3, steamid, sizeof(steamid));
+    GetClientAuthId(client, AuthId_Steam2, steamid, sizeof(steamid));
     GetClientName(client, name, sizeof(name));
     ReplaceString(name, sizeof(name), "'", "");
     GetClientIP(client, ip, sizeof(ip));
@@ -349,6 +345,7 @@ CheckAdminsInDB()
     }
 
     if(!KvGotoFirstSubKey(kvAdmins)) {
+        IronLog(false, "Failed to load admins sub key");
         return false;
     }
 
@@ -379,7 +376,7 @@ public CheckAdminsInDBCallback(Handle:owner, Handle:hndl, const String:error[], 
 
     if (SQL_GetRowCount(hndl) < 1) {
         Format(DBQuery, sizeof(DBQuery), "SELECT id, name FROM players WHERE steamid='%s'", dataString);
-        SQL_TQuery(DB, CheckAdminsInDBCallback2, DBQuery, data);
+        SQL_TQuery(DB, CallbackToInsertAdmin, DBQuery, data);
     } else {
         decl String:buffer[64], String:flags[64];
         SQL_FetchRow(hndl);
@@ -393,7 +390,7 @@ public CheckAdminsInDBCallback(Handle:owner, Handle:hndl, const String:error[], 
     }
 }
 
-public CheckAdminsInDBCallback2(Handle:owner, Handle:hndl, const String:error[], any:data)
+public CallbackToInsertAdmin(Handle:owner, Handle:hndl, const String:error[], any:data)
 {
     if(hndl == INVALID_HANDLE) {
         IronLog(false, "Query to DBCallback2 failed: %s", error);

@@ -43,17 +43,15 @@ public Action:Event_player_changename(Handle:event, const String:name[], bool:do
     new client = GetClientOfUserId(GetEventInt(event, "userid"));
     GetClientName(client, clientname, sizeof(clientname));
     ReplaceString(clientname, sizeof(clientname), "'", "");
-    GetClientAuthId(client, AuthId_Steam3, steamid, sizeof(steamid));
+    GetClientAuthId(client, AuthId_Steam2, steamid, sizeof(steamid));
     Format(DBQuery, sizeof(DBQuery), "UPDATE players SET name='%s' WHERE steamid='%s'", clientname, steamid);
     SQL_TQuery(DB, SQLErrorCheckCallback, DBQuery);
 }
 
 public Action:Command_Say(client, const String:command[], arg) {
-    if(g_GlobalAntispam[client]) 
-        return Plugin_Handled;
-
-    if(!IsValidClient(client))
-        return Plugin_Handled;
+    if(!IsValidClient(client) || g_GlobalAntispam[client]) {
+       return Plugin_Handled;
+    }
 
     g_GlobalAntispam[client] = true;
     CreateTimer(1.5, Timer_Antispam, GetClientSerial(client));
@@ -126,7 +124,7 @@ public bool:ParseChatCommands(const client, String:text[]) {
         return false;
     } else if(strcmp(text, "rank", false)==0 || strcmp(text, "/rank", false)==0 || strcmp(text, "session", false)==0 || strcmp(text, "/session", false)==0) {
         decl String:clientid[32];
-        GetClientAuthId(client, AuthId_Steam3, clientid, sizeof(clientid));
+        GetClientAuthId(client, AuthId_Steam2, clientid, sizeof(clientid));
         if(StrContains(text, "rank", false)!=-1) {
             decl String:query[512];
             Format(query, sizeof(query), "SELECT COUNT(*) FROM elostats WHERE rating>%i", rating[client]);
@@ -174,7 +172,7 @@ public bool:ParseChatCommands(const client, String:text[]) {
     }
 
     if (StrEqual(text, "/vips", false) || StrEqual(text, "!vips", false) || StrEqual(text, "vips", false)) {
-        DisplayVipsMenu(client);
+        DisplayVipListMenu(client);
         return false;
     }
 
@@ -241,68 +239,74 @@ public Action:Command_Callvote(client, const String:cmd[], argc) {
     return Plugin_Handled;
 }
 
-public Action:Event_PlayerDeath(Handle:event, const String:name[], bool:dontBroadcast) {
-    new client = GetClientOfUserId(GetEventInt(event, "userid"));
+public Action:Event_PlayerDeath(Handle:event, const String:name[], bool:dontBroadcast)
+{
+    new client   = GetClientOfUserId(GetEventInt(event, "userid"));
     new attacker = GetClientOfUserId(GetEventInt(event, "attacker"));
     new assister = GetClientOfUserId(GetEventInt(event, "assister"));
-    if(g_boostToggle[client]) BoostPlayerOff(client);
-    if(client!=0 && attacker!=0) {
-        if(!IsFakeClient(client)&&!IsFakeClient(attacker)&&client!=attacker) {
-            decl String:query[512], String:buffer[256];
-            new Float:prob = 1/(Pow(10.0, float((rating[client]-rating[attacker]))/400)+1);
-            new diff = RoundFloat(16*(1-prob));
-            if(assister!=0) {
-                new diff2 = RoundToCeil(float(diff)/3.0);
-                rating[assister] = rating[assister]+diff2;
-                assists[assister]++;
-                sessionassists[assister]++;
-                Format(query, sizeof(query), "UPDATE elostats SET rating=%i,assists=%i WHERE idPlayer='%d'", rating[assister], assists[assister], g_PlayerId[assister]);
-                SQL_TQuery(DB, SQLErrorCheckCallback, query);
-                if(notify[assister]) {
-                    Format(buffer, sizeof(buffer), "{NORMAL}Ty ({BLUE}%i{NORMAL}) si dostal {BLUE}%i{NORMAL} body za asistenciu pri zabití hráča {LIGHTGREEN}%N{NORMAL} ({BLUE}%i{NORMAL}).", rating[assister], diff2, client, rating[client]);
-                    PluginMessageToClient(assister, buffer);
-                }
-            }
-
-            rating[client] -= diff;
-            sessionrating[client] -= diff;
-            deaths[client]++;
-            sessiondeaths[client]++;
-
-            Format(query, sizeof(query), "UPDATE elostats SET rating=%i,deaths=%i WHERE idPlayer='%d'", rating[client], deaths[client], g_PlayerId[client]);
+    if (g_boostToggle[client]) BoostPlayerOff(client);
+    if (!IsValidClient(client) || !IsValidClient(attacker)) {
+        return Plugin_Continue;
+    }
+    if (!IsFakeClient(client)&&!IsFakeClient(attacker)&&client!=attacker) {
+        decl String:query[512], String:buffer[256];
+        new Float:prob = 1/(Pow(10.0, float((rating[client]-rating[attacker]))/400)+1);
+        new diff = RoundFloat(16*(1-prob));
+        if(assister!=0) {
+            new diff2 = RoundToCeil(float(diff)/3.0);
+            rating[assister] = rating[assister]+diff2;
+            assists[assister]++;
+            sessionassists[assister]++;
+            Format(query, sizeof(query), "UPDATE elostats SET rating=%i,assists=%i WHERE idPlayer='%d'", rating[assister], assists[assister], g_PlayerId[assister]);
             SQL_TQuery(DB, SQLErrorCheckCallback, query);
-
-            if(notify[client]) {
-                Format(buffer, sizeof(buffer), "{NORMAL}Ty ({BLUE}%i{NORMAL}) si bol zabitý hráčom {LIGHTGREEN}%N{NORMAL} ({BLUE}%i{NORMAL}) a stratil si {BLUE}%i{NORMAL} bodov.", rating[client], attacker, rating[attacker], diff);
-                PluginMessageToClient(client, buffer);
-            }
-
-            if(HasPlayerVipAdv(attacker, DOUBLEELO) && g_ELOCounter[attacker] % 2 == 0) {
-                diff *= 2;
-            }
-
-            g_ELOCounter[attacker] += 1;
-            rating[attacker] += diff;
-            sessionrating[attacker] += diff;
-            kills[attacker]++;
-            sessionkills[attacker]++;
-            
-            Format(query, sizeof(query), "UPDATE elostats SET rating=%i,kills=%i WHERE idPlayer='%d'", rating[attacker], kills[attacker], g_PlayerId[attacker]);
-            SQL_TQuery(DB, SQLErrorCheckCallback, query);
-
-            if(notify[attacker]) {
-                Format(buffer, sizeof(buffer), "{NORMAL}Ty ({BLUE}%i{NORMAL}) si dostal {BLUE}%i{NORMAL} bodov za zabitie hráča {LIGHTGREEN}%N{NORMAL} ({BLUE}%i{NORMAL}).", rating[attacker], diff, client, rating[client]);
-                PluginMessageToClient(attacker, buffer);
+            if(notify[assister]) {
+                Format(buffer, sizeof(buffer), "{NORMAL}Ty ({BLUE}%i{NORMAL}) si dostal {BLUE}%i{NORMAL} body za asistenciu pri zabití hráča {LIGHTGREEN}%N{NORMAL} ({BLUE}%i{NORMAL}).", rating[assister], diff2, client, rating[client]);
+                PluginMessageToClient(assister, buffer);
             }
         }
+
+        rating[client] -= diff;
+        sessionrating[client] -= diff;
+        deaths[client]++;
+        sessiondeaths[client]++;
+
+        Format(query, sizeof(query), "UPDATE elostats SET rating=%i,deaths=%i WHERE idPlayer='%d'", rating[client], deaths[client], g_PlayerId[client]);
+        SQL_TQuery(DB, SQLErrorCheckCallback, query);
+
+        if(notify[client]) {
+            Format(buffer, sizeof(buffer), "{NORMAL}Ty ({BLUE}%i{NORMAL}) si bol zabitý hráčom {LIGHTGREEN}%N{NORMAL} ({BLUE}%i{NORMAL}) a stratil si {BLUE}%i{NORMAL} bodov.", rating[client], attacker, rating[attacker], diff);
+            PluginMessageToClient(client, buffer);
+        }
+
+        if(HasPlayerVipAdv(attacker, DOUBLEELO) && g_ELOCounter[attacker] % 2 == 0) {
+            diff *= 2;
+        }
+
+        g_ELOCounter[attacker] += 1;
+        rating[attacker] += diff;
+        sessionrating[attacker] += diff;
+        kills[attacker]++;
+        sessionkills[attacker]++;
+
+        Format(query, sizeof(query), "UPDATE elostats SET rating=%i,kills=%i WHERE idPlayer='%d'", rating[attacker], kills[attacker], g_PlayerId[attacker]);
+        SQL_TQuery(DB, SQLErrorCheckCallback, query);
+
+        if(notify[attacker]) {
+            Format(buffer, sizeof(buffer), "{NORMAL}Ty ({BLUE}%i{NORMAL}) si dostal {BLUE}%i{NORMAL} bodov za zabitie hráča {LIGHTGREEN}%N{NORMAL} ({BLUE}%i{NORMAL}).", rating[attacker], diff, client, rating[client]);
+            PluginMessageToClient(attacker, buffer);
+        }
     }
+
+    return Plugin_Continue;
 }
 
-public Event_MatchOver(Handle:event, const String:name[], bool:dontBroadcast) {
+public Event_MatchOver(Handle:event, const String:name[], bool:dontBroadcast)
+{
     g_roundCounter = 0;
 }
 
-public Action:Event_PlayerSpawn(Handle:event, const String:name[], bool:dontBroadcast) {
+public Action:Event_PlayerSpawn(Handle:event, const String:name[], bool:dontBroadcast)
+{
     new client = GetClientOfUserId(GetEventInt(event, "userid"));
     if(!IsValidClient(client)) return;
 
@@ -321,7 +325,8 @@ public Action:PlayerPostSpawn(Handle:timer, any:client)
     return Plugin_Continue;
 }
 
-public Action:Event_PlayerHurt(Handle:event, const String:name[], bool:dontBroadcast) {   
+public Action:Event_PlayerHurt(Handle:event, const String:name[], bool:dontBroadcast)
+ {
     new client_attacker = GetClientOfUserId(GetEventInt(event, "attacker"));
     new client = GetClientOfUserId(GetEventInt(event, "userid"));
     new damage = GetEventInt(event, "dmg_health");
